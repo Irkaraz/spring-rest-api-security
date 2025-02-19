@@ -14,25 +14,33 @@ import javax.sql.DataSource;
 @Configuration
 public class DemoSecurityConfig {
 
-    // add support for JDBC ... no more hardcode users
     @Bean
-    public UserDetailsManager userDetailsManager(DataSource dataSource) { // inject data source Auto-configured by Spring-Boot
+    public UserDetailsManager userDetailsManager(DataSource dataSource) {
 
-        return new JdbcUserDetailsManager(dataSource);
-        // tell Spring Security to use JDBC authentication with our data source
+        JdbcUserDetailsManager theUserDetailsManager = new JdbcUserDetailsManager(dataSource);
+
+        // define query to retrieve a user by username
+        theUserDetailsManager
+                .setUsersByUsernameQuery("select user_id, pw, active from members where user_id=?");
+
+        // define query to retrieve the authorities/roles by username
+        theUserDetailsManager
+                .setAuthoritiesByUsernameQuery("select user_id, role from roles where user_id=?");
+
+        return theUserDetailsManager;
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests(configurer ->
-                configurer
+        http.authorizeHttpRequests(configure ->
+                configure
                         .requestMatchers(HttpMethod.GET, "/api/employees").hasRole("EMPLOYEE")
                         .requestMatchers(HttpMethod.GET, "/api/employees/**").hasRole("EMPLOYEE")
                         .requestMatchers(HttpMethod.POST, "/api/employees").hasRole("MANAGER")
                         .requestMatchers(HttpMethod.PUT, "/api/employees").hasRole("MANAGER")
                         .requestMatchers(HttpMethod.DELETE, "/api/employees/**").hasRole("ADMIN"));
 
-        // use HTTP Basic authentication}
+        // use HTTP Basic authentication
         http.httpBasic(Customizer.withDefaults());
 
         // disable Cross Site Request Forgery (CSRF)
@@ -42,29 +50,3 @@ public class DemoSecurityConfig {
         return http.build();
     }
 }
-
-/*
-    @Bean
-    public InMemoryUserDetailsManager userDetailsManager() {
-
-        UserDetails isa = User.builder()
-                .username("isa")
-                .password("{noop}test123")
-                .roles("EMPLOYEE")
-                .build();
-
-        UserDetails leandro = User.builder()
-                .username("leandro")
-                .password("{noop}test123")
-                .roles("EMPLOYEE", "MANAGER")
-                .build();
-
-        UserDetails jess = User.builder()
-                .username("jess")
-                .password("{noop}test123")
-                .roles("EMPLOYEE", "MANAGER", "ADMIN")
-                .build();
-
-        return new InMemoryUserDetailsManager(isa, leandro, jess);
-    }
-*/
